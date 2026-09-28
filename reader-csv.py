@@ -6,6 +6,6 @@ df["cpu"] = pd.to_numeric(df["cpu"], errors="coerce")
 df["ram"] = pd.to_numeric(df["memoria"], errors="coerce")
 df["disco"] = pd.to_numeric(df["disco"], errors="coerce")
 
-medias = df.groupby("uuid")[["cpu", "ram", "disco"]].mean()
+medias = df.groupby("mac_geral")[["cpu", "ram", "disco"]].mean()
 
 print(medias)

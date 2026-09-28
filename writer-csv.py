@@ -2,6 +2,7 @@ import platform
 import subprocess
 import socket
 import mysql.connector
+from getmac import get_mac_address 
 
 import psutil
 from datetime import datetime
@@ -12,33 +13,19 @@ from pathlib import Path
 conexao = mysql.connector.connect(
     host="localhost",
     user="aluno",
-    password="sptech",
+    password="Sptech#2024",
     database="flowtech"
 )
 
 cursor = conexao.cursor(dictionary=True)
 
-def obter_uuid_da_placa():
-    sistema = platform.system().lower()
+mac_geral = get_mac_address().replace(":", "").upper()
 
-    if sistema == "windows":
-        cmd = ["powershell", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"]
-        return subprocess.check_output(cmd, text=True, creationflags=subprocess.CREATE_NO_WINDOW).strip()
     
-    elif sistema == "linux":
-        return subprocess.check_output("sudo cat /sys/class/dmi/id/product_uuid", shell=True, text=True).strip()
-    
-    elif sistema == "darwin":
-        cmd = "ioreg -rd1 -c IOPlatformExpertDevice | awk -F'\"' '/IOPlatformUUID/ {print $4}'"
-        return subprocess.check_output(cmd, shell=True, text=True).strip()
-
-    else:
-        return None
-    
-def coletar_dados(usuario, maquina, uuid, id_embarcado):
+def coletar_dados(usuario, maquina, mac_geral, id_embarcado):
     print("Programa Iniciado.")
     
-    comando_sql = "SELECT * FROM parametros p INNER JOIN componentes c ON p.fk_componente = c.id WHERE p.fk_embarcado = %s;"
+    comando_sql = "SELECT * FROM parametro p INNER JOIN componente c ON p.componente_id = c.id_componente WHERE p.embarcado_id = %s;"
 
     cursor.execute(comando_sql, (id_embarcado, ))
     resultados = cursor.fetchall()
@@ -70,11 +57,11 @@ def coletar_dados(usuario, maquina, uuid, id_embarcado):
     print(f"Olá {usuario}, aqui estão os dados da sua máquina (aguarde 15 seg):")
 
     data_atual = datetime.now().strftime("%Y-%m-%d")
-    nome_arquivo = f"./{maquina}_{uuid}_{data_atual}.csv"
+    nome_arquivo = f"./{maquina}_{mac_geral}_{data_atual}.csv"
 
     if not Path(f"./{nome_arquivo}").exists():
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write("maquina,uuid,cpu,disco,memoria,rede,data/hora\n")
+            csvfile.write("maquina,mac,cpu,disco,memoria,rede,data/hora\n")
 
     for i in range(25):
         cpu = psutil.cpu_percent(interval=1) if alvo_cpu else None
@@ -91,7 +78,7 @@ def coletar_dados(usuario, maquina, uuid, id_embarcado):
         data_hora = datetime.now().replace(microsecond=0)
 
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write(f"{maquina},{uuid},{cpu},{ram},{disco},{upload_mbps},{data_hora}\n")
+            csvfile.write(f"{maquina},{mac_geral},{cpu},{ram},{disco},{upload_mbps},{data_hora}\n")
 
         time.sleep(4)
 
@@ -105,10 +92,10 @@ def coletar_dados(usuario, maquina, uuid, id_embarcado):
     print("Programa encerrado.")
     
 def login():
-    email = input("Email: ")
-    passwd = input("Senha: ")
+    email = "infra@flowtech.com.br"
+    passwd = "Sptech#2026"
     
-    comando_sql = "SELECT u.id as id_usuario, u.email, u.senha, u.username, e.id as id_empresa, e.nome_fantasia FROM usuarios u INNER JOIN empresas e ON u.fk_empresa = e.id WHERE u.email = %s AND u.senha = %s;"
+    comando_sql = "SELECT u.id_usuario, u.nome, u.email, u.senha, e.id_empresa, e.nome_fantasia FROM usuario u INNER JOIN empresa e ON u.empresa_id = e.id_empresa WHERE u.email = %s AND u.senha = sha2(%s,256);"
     dados_usuario = (email, passwd)
 
     cursor.execute(comando_sql, dados_usuario)
@@ -118,7 +105,7 @@ def login():
         print("Operação invalida: Usuário não encontrado! Acesse www.freeflow.com e realize seu cadastro.")
         return
 
-    usuario = resultados["username"]
+    usuario = resultados["nome"]
 
     print("Login realizado com sucesso!")
     print(f"Seja bem-vindo {usuario}")
@@ -127,9 +114,8 @@ def login():
     del comando_sql
     del dados_usuario
     
-    comando_sql = "SELECT emp.id as id_empresa, p.id as id_porticos, emb.id as id_embarcado, emb.uuid, emb.status FROM empresas as emp INNER JOIN porticos as p ON emp.id = p.fk_empresa INNER JOIN embarcados as emb ON p.id = emb.fk_portico WHERE emb.uuid = %s;"
-    uuid = obter_uuid_da_placa()
-    cursor.execute(comando_sql, (uuid, ))
+    comando_sql = "SELECT emp.id_empresa, emb.id_embarcado, emb.endereco_mac, emb.status FROM empresa as emp INNER JOIN embarcado as emb ON emp.id_empresa = emb.empresa_id WHERE emb.endereco_mac = %s;"
+    cursor.execute(comando_sql, (mac_geral, ))
     resultados = cursor.fetchone()
     
     if not resultados:
@@ -153,6 +139,9 @@ def login():
     del comando_sql
     print("Sucesso: Iniciando a coleta de dados...")
     hostname = socket.gethostname()
-    coletar_dados(usuario, hostname, uuid, id_embarcado)
+    coletar_dados(usuario, hostname, mac_geral, id_embarcado)
     
 login()
+
+
+mensagem.append([id_maquina,hora, porcentagem_cpu,ram.total, ram.used, swap.total,swap.used,proc_rodando,proc_esperando,uso_disco.total, uso_disco.used,io_rede.bytes_sent,io_rede.bytes_recv,io_rede.dropin,io_rede.dropout,latencia])
