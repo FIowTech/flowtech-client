@@ -30,29 +30,31 @@ def coletar_dados(usuario, maquina, mac_geral, id_embarcado):
     cursor.execute(comando_sql, (id_embarcado, ))
     resultados = cursor.fetchall()
     
-    alvo_cpu = None
-    alvo_ram = None
-    alvo_disco = None
-    alvo_rede = None
+    # alvo_cpu = None
+    # alvo_ram = None
+    # alvo_disco = None
+    # alvo_rede = None
     
-    if not resultados:
-        print("Não foram definidos parâmetros especificos... buscando o padrão.")
-        alvo_cpu = alvo_ram = alvo_disco = alvo_rede = True
+    # if not resultados:
+    #     print("Não foram definidos parâmetros especificos... buscando o padrão.")
+    #     alvo_cpu = alvo_ram = alvo_disco = alvo_rede = True
         
     
-    for item in resultados:
-        if item["nome"] == "cpu":
-            alvo_cpu = True
-        if item["nome"] == "ram":
-            alvo_ram = True
-        if item["nome"] == "disco":
-            alvo_disco = True
-        if item["nome"] == "rede":
-            alvo_rede = True
+    # for item in resultados:
+    #     if item["nome"] == "cpu":
+    #         alvo_cpu = True
+    #     if item["nome"] == "ram":
+    #         alvo_ram = True
+    #     if item["nome"] == "disco":
+    #         alvo_disco = True
+    #     if item["nome"] == "rede":
+    #         alvo_rede = True
 
-    cursor.close()
-    conexao.close()
-    del resultados
+
+
+    # cursor.close()
+    # conexao.close()
+    # del resultados
 
     print(f"Olá {usuario}, aqui estão os dados da sua máquina (aguarde 15 seg):")
 
@@ -64,16 +66,16 @@ def coletar_dados(usuario, maquina, mac_geral, id_embarcado):
             csvfile.write("maquina,mac,cpu,disco,memoria,rede,data/hora\n")
 
     for i in range(25):
-        cpu = psutil.cpu_percent(interval=1) if alvo_cpu else None
-        ram = psutil.virtual_memory().percent if alvo_ram else None
-        disco = psutil.disk_usage("/").percent if alvo_disco else None
-        if alvo_rede == True:
-            rede_inicio = psutil.net_io_counters() 
-            time.sleep(10)
-            rede_fim = psutil.net_io_counters()
-            upload_mbps = f"{(rede_fim.bytes_sent - rede_inicio.bytes_sent) * 8 / 1_000_000:.3f}"
-        else:
-            upload_mbps = None
+        cpu = psutil.cpu_percent(interval=1) # if alvo_cpu else None
+        ram = psutil.virtual_memory().percent # if alvo_ram else None
+        disco = psutil.disk_usage("/").percent # if alvo_disco else None
+        #if alvo_rede == True:
+        rede_inicio = psutil.net_io_counters() 
+        time.sleep(10)
+        rede_fim = psutil.net_io_counters()
+        upload_mbps = f"{(rede_fim.bytes_sent - rede_inicio.bytes_sent) * 8 / 1_000_000:.3f}"
+        #else:
+         #   upload_mbps = None
             
         data_hora = datetime.now().replace(microsecond=0)
 
@@ -82,10 +84,15 @@ def coletar_dados(usuario, maquina, mac_geral, id_embarcado):
 
         time.sleep(4)
 
-        if alvo_cpu: print(f"CPU: {cpu}%")
-        if alvo_ram: print(f"Memória: {ram}%")
-        if alvo_disco: print(f"Disco: {disco}%")
-        if alvo_rede: print(f"Rede: {upload_mbps} Mbps")
+        #if alvo_cpu: 
+        print(f"CPU: {cpu}%")
+        #if alvo_ram: 
+        print(f"Memória: {ram}%")
+        #if alvo_disco: 
+        print(f"Disco: {disco}%")
+        #if alvo_rede: 
+        print(f"Rede: {upload_mbps} Mbps")
+        
         print("Data e hora local:", data_hora)
         print("---------------------------------------------")
 
