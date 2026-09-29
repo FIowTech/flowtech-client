@@ -3,12 +3,15 @@ import subprocess
 import socket
 import mysql.connector
 from getmac import get_mac_address 
+import speedtest
 
 import psutil
 from datetime import datetime
 import time
-
 from pathlib import Path
+
+
+MAX_NUCLEOS = 16
 
 conexao = mysql.connector.connect(
     host="localhost",
@@ -21,14 +24,13 @@ cursor = conexao.cursor(dictionary=True)
 
 mac_geral = get_mac_address().replace(":", "").upper()
 
-    
-def coletar_dados(usuario, maquina, mac_geral, id_embarcado):
+def coletar_dados(usuario, mac_geral, id_embarcado):
     print("Programa Iniciado.")
     
     comando_sql = "SELECT * FROM parametro p INNER JOIN componente c ON p.componente_id = c.id_componente WHERE p.embarcado_id = %s;"
 
     cursor.execute(comando_sql, (id_embarcado, ))
-    resultados = cursor.fetchall()
+    #resultados = cursor.fetchall()
     
     # alvo_cpu = None
     # alvo_ram = None
@@ -59,40 +61,70 @@ def coletar_dados(usuario, maquina, mac_geral, id_embarcado):
     print(f"Olá {usuario}, aqui estão os dados da sua máquina (aguarde 15 seg):")
 
     data_atual = datetime.now().strftime("%Y-%m-%d")
-    nome_arquivo = f"./{maquina}_{mac_geral}_{data_atual}.csv"
+    nome_arquivo = f"./{mac_geral}_{data_atual}.csv"
 
     if not Path(f"./{nome_arquivo}").exists():
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write("maquina,mac,cpu,disco,memoria,rede,data/hora\n")
-
+            csvfile.write("mac, data/hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,ram_total,ram_usada,swap_total,swap_usada,disco_total,disco_usada,download,upload,latencia,cpu_1, cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
+        
     for i in range(25):
+        # CPU 
         cpu = psutil.cpu_percent(interval=1) # if alvo_cpu else None
-        ram = psutil.virtual_memory().percent # if alvo_ram else None
-        disco = psutil.disk_usage("/").percent # if alvo_disco else None
-        #if alvo_rede == True:
+        cpu_por_nucleo = psutil.cpu_percent(interval=None, percpu=True)
+        qtd_cpu_fisica = psutil.cpu_count(logical=False)
+        qtd_cpu_logica = psutil.cpu_count(logical=True)
+        freq_cpu = psutil.cpu_freq()
+
+
+        mensagem_nucleos = []
+        for i in range(MAX_NUCLEOS):
+             try:
+                 mensagem_nucleos.append(cpu_por_nucleo[i])
+             except IndexError:
+                 mensagem_nucleos.append("")
+
+        # RAM
+        
+        ramTotal = f"{psutil.virtual_memory().total / (1024 * 1024):.4f}"
+        ramUsada = f"{psutil.virtual_memory().used / (1024 * 1024):.4f}" 
+        swapTotal = psutil.swap_memory().total / (1024 * 1024)
+        swapUsada = psutil.swap_memory().used / (1024 * 1024)
+
+
+        # Disco
+        discoTotal = psutil.disk_usage("/").total / (1024 * 1024) # if alvo_disco else None
+        discoUsado = psutil.disk_usage("/").used / (1024 * 1024) # if alvo_disco else None
+        
+        # Rede
         rede_inicio = psutil.net_io_counters() 
-        time.sleep(10)
+        st = speedtest.Speedtest()
+        latencia = st.results.ping
+        
+        time.sleep(4)
         rede_fim = psutil.net_io_counters()
         upload_mbps = f"{(rede_fim.bytes_sent - rede_inicio.bytes_sent) * 8 / 1_000_000:.3f}"
-        #else:
-         #   upload_mbps = None
-            
+        download_mbps = f"{(rede_inicio.bytes_sent - rede_fim.bytes_sent) / 1000.0:.3f}"
+
+         # Capturando processos
+        #processos = list(psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info', 'status']))
+        #total_processos = len(processos)
+
         data_hora = datetime.now().replace(microsecond=0)
-
-        with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write(f"{maquina},{mac_geral},{cpu},{ram},{disco},{upload_mbps},{data_hora}\n")
-
-        time.sleep(4)
-
-        #if alvo_cpu: 
-        print(f"CPU: {cpu}%")
-        #if alvo_ram: 
-        print(f"Memória: {ram}%")
-        #if alvo_disco: 
-        print(f"Disco: {disco}%")
-        #if alvo_rede: 
-        print(f"Rede: {upload_mbps} Mbps")
         
+        mensagem = []
+        mensagem.append([mac_geral, data_hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,ramTotal, ramUsada,swapTotal,swapUsada,discoTotal,discoUsado,download_mbps,upload_mbps,latencia,*mensagem_nucleos])
+        
+        with open(f'./{nome_arquivo}', 'w', newline='') as csvfile:
+            csvfile.write(f"{mensagem}")
+
+        #time.sleep(4)
+
+        #print(processos)
+        print(f"CPU: {cpu}%")
+        print(f"Memória: {ramUsada}%")
+        print(f"Disco: {discoUsado}%")
+        print(f"Rede Download: {download_mbps} Mbps")
+        print(f"Rede Upload: {upload_mbps} Mbps")
         print("Data e hora local:", data_hora)
         print("---------------------------------------------")
 
@@ -145,10 +177,6 @@ def login():
     del resultados
     del comando_sql
     print("Sucesso: Iniciando a coleta de dados...")
-    hostname = socket.gethostname()
-    coletar_dados(usuario, hostname, mac_geral, id_embarcado)
+    coletar_dados(usuario, mac_geral, id_embarcado)
     
 login()
-
-
-mensagem.append([id_maquina,hora, porcentagem_cpu,ram.total, ram.used, swap.total,swap.used,proc_rodando,proc_esperando,uso_disco.total, uso_disco.used,io_rede.bytes_sent,io_rede.bytes_recv,io_rede.dropin,io_rede.dropout,latencia])
