@@ -34,7 +34,7 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
 
     if not Path(f"./{nome_arquivo}").exists():
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write("mac, data/hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,freq_cpu_total,ram_total,ram_usada,swap_total,swap_usada,disco_total,disco_usado,maior_processo_cpu,maior_processo_ram,download,upload,latencia,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
+            csvfile.write("mac,data/hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,freq_cpu_total,ram_total,ram_usada,swap_total,swap_usada,disco_total,disco_usado,maior_processo_cpu,maior_processo_ram,download,upload,latencia,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
         
     for i in range(25):
         # CPU 
