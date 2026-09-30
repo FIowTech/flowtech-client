@@ -18,6 +18,7 @@ conexao = mysql.connector.connect(
 cursor = conexao.cursor(dictionary=True)
 
 mac_geral = get_mac_address().replace(":", "").upper()
+mac_geral_ponto = get_mac_address().upper()
 MAX_NUCLEOS = 16
 
 def coletar_dados(usuario, mac_geral, id_embarcado):
@@ -164,8 +165,11 @@ def login():
     resultados = cursor.fetchone()
     
     if not resultados:
-        print("Operação inválida: Máquina não está cadastrada, por favor insira em sua dashboard")
-        return
+        cursor.execute(comando_sql, (mac_geral_ponto, ))
+        resultados = cursor.fetchone()
+        if not resultados:
+            print("Operação inválida: Máquina não está cadastrada, por favor insira em sua dashboard")
+            return
     
     id_empresa_embarcado = resultados["id_empresa"]
     
