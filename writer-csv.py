@@ -1,17 +1,12 @@
-import platform
-import subprocess
-import socket
 import mysql.connector
 from getmac import get_mac_address 
 import speedtest
-
+import csv
 import psutil
-from datetime import datetime
-import time
+from datetime import datetime, time
 from pathlib import Path
+import time
 
-
-MAX_NUCLEOS = 16
 
 conexao = mysql.connector.connect(
     host="localhost",
@@ -23,6 +18,7 @@ conexao = mysql.connector.connect(
 cursor = conexao.cursor(dictionary=True)
 
 mac_geral = get_mac_address().replace(":", "").upper()
+MAX_NUCLEOS = 16
 
 def coletar_dados(usuario, mac_geral, id_embarcado):
     print("Programa Iniciado.")
@@ -30,51 +26,24 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
     comando_sql = "SELECT * FROM parametro p INNER JOIN componente c ON p.componente_id = c.id_componente WHERE p.embarcado_id = %s;"
 
     cursor.execute(comando_sql, (id_embarcado, ))
-    #resultados = cursor.fetchall()
-    
-    # alvo_cpu = None
-    # alvo_ram = None
-    # alvo_disco = None
-    # alvo_rede = None
-    
-    # if not resultados:
-    #     print("Não foram definidos parâmetros especificos... buscando o padrão.")
-    #     alvo_cpu = alvo_ram = alvo_disco = alvo_rede = True
-        
-    
-    # for item in resultados:
-    #     if item["nome"] == "cpu":
-    #         alvo_cpu = True
-    #     if item["nome"] == "ram":
-    #         alvo_ram = True
-    #     if item["nome"] == "disco":
-    #         alvo_disco = True
-    #     if item["nome"] == "rede":
-    #         alvo_rede = True
 
-
-
-    # cursor.close()
-    # conexao.close()
-    # del resultados
-
-    print(f"Olá {usuario}, aqui estão os dados da sua máquina (aguarde 15 seg):")
+    print(f"Olá {usuario}, aqui estão os dados da sua máquina {mac_geral}(aguarde 15 seg):")
 
     data_atual = datetime.now().strftime("%Y-%m-%d")
     nome_arquivo = f"./{mac_geral}_{data_atual}.csv"
 
     if not Path(f"./{nome_arquivo}").exists():
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write("mac, data/hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,ram_total,ram_usada,swap_total,swap_usada,disco_total,disco_usada,download,upload,latencia,cpu_1, cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
+            csvfile.write("mac, data/hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,freq_cpu_total,ram_total,ram_usada,swap_total,swap_usada,disco_total,disco_usado,maior_processo_cpu,maior_processo_ram,download,upload,latencia,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
         
     for i in range(25):
         # CPU 
-        cpu = psutil.cpu_percent(interval=1) # if alvo_cpu else None
-        cpu_por_nucleo = psutil.cpu_percent(interval=None, percpu=True)
+        cpu = psutil.cpu_percent() 
+        cpu_por_nucleo = psutil.cpu_percent(percpu=True)
         qtd_cpu_fisica = psutil.cpu_count(logical=False)
         qtd_cpu_logica = psutil.cpu_count(logical=True)
-        freq_cpu = psutil.cpu_freq()
-
+        freq_cpu = f"{psutil.cpu_freq().current / 1000:.2f}"
+        freq_cpu_total = f"{psutil.cpu_freq().max / 1000:.2f}"
 
         mensagem_nucleos = []
         for i in range(MAX_NUCLEOS):
@@ -84,55 +53,92 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
                  mensagem_nucleos.append("")
 
         # RAM
-        
-        ramTotal = f"{psutil.virtual_memory().total / (1024 * 1024):.4f}"
-        ramUsada = f"{psutil.virtual_memory().used / (1024 * 1024):.4f}" 
-        swapTotal = psutil.swap_memory().total / (1024 * 1024)
-        swapUsada = psutil.swap_memory().used / (1024 * 1024)
-
+        ramTotal = f"{psutil.virtual_memory().total / (1024 * 1024):.0f}"
+        ramUsada = f"{psutil.virtual_memory().used / (1024 * 1024):.0f}" 
+        swapTotal = f"{psutil.swap_memory().total / (1024 * 1024):.0f}"
+        swapUsada = f"{psutil.swap_memory().used / (1024 * 1024):.0f}"
 
         # Disco
-        discoTotal = psutil.disk_usage("/").total / (1024 * 1024) # if alvo_disco else None
-        discoUsado = psutil.disk_usage("/").used / (1024 * 1024) # if alvo_disco else None
-        
+        discoTotal = f"{psutil.disk_usage("/").total / (1024 * 1024):.0f}"
+        discoUsado = f"{psutil.disk_usage("/").used / (1024 * 1024):.0f}"
+
         # Rede
-        rede_inicio = psutil.net_io_counters() 
         st = speedtest.Speedtest()
+        st.get_best_server()
         latencia = st.results.ping
+        download_mbps = f"{st.download() / 1_000_000:.2f}"
+        upload_mbps = f"{st.upload() / 1_000_000:.2f}"
+
+        #Metodo errado
+        # rede_inicio = psutil.net_io_counters()
+
+        # time.sleep(1)
+
+        # rede_fim = psutil.net_io_counters()
+
+        # download_mbps = ((rede_fim.bytes_recv - rede_inicio.bytes_recv)* 8 / 1_000_000)     
+        # upload_mbps = ((rede_fim.bytes_sent - rede_inicio.bytes_sent) * 8 / 1_000_000)
+
+        # Capturando processo
+        for processo in psutil.process_iter():
+            try:
+                processo.cpu_percent(None)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            
+        time.sleep(1)
+
+        maior_cpu = ""
+        maior_percentual = 0
+
+        for processo in psutil.process_iter(['pid', 'name']):
+            try:
+                uso_cpu = processo.cpu_percent(None)
+
+                if uso_cpu > maior_percentual:
+                    maior_percentual = uso_cpu
+                    maior_cpu = processo
+
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+        maior_ram = ""
+        maior_memoria = 0
+
+        for processo in psutil.process_iter(['pid', 'name', 'memory_info']):
+            try:
+                memoria = processo.info['memory_info'].rss 
+
+                if memoria > maior_memoria:
+                    maior_memoria = memoria
+                    maior_ram = processo
+
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            
+        data_hora = datetime.now().replace(microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
         
-        time.sleep(4)
-        rede_fim = psutil.net_io_counters()
-        upload_mbps = f"{(rede_fim.bytes_sent - rede_inicio.bytes_sent) * 8 / 1_000_000:.3f}"
-        download_mbps = f"{(rede_inicio.bytes_sent - rede_fim.bytes_sent) / 1000.0:.3f}"
+        mensagem = [mac_geral,data_hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,freq_cpu_total,ramTotal,ramUsada,swapTotal,swapUsada,discoTotal,discoUsado,maior_cpu.name(),maior_ram.info['name'],download_mbps,upload_mbps,latencia,*mensagem_nucleos]
 
-         # Capturando processos
-        #processos = list(psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info', 'status']))
-        #total_processos = len(processos)
+        with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
+            arquivo = csv.writer(csvfile)
+            arquivo.writerow(mensagem)
 
-        data_hora = datetime.now().replace(microsecond=0)
-        
-        mensagem = []
-        mensagem.append([mac_geral, data_hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,ramTotal, ramUsada,swapTotal,swapUsada,discoTotal,discoUsado,download_mbps,upload_mbps,latencia,*mensagem_nucleos])
-        
-        with open(f'./{nome_arquivo}', 'w', newline='') as csvfile:
-            csvfile.write(f"{mensagem}")
-
-        #time.sleep(4)
-
-        #print(processos)
         print(f"CPU: {cpu}%")
-        print(f"Memória: {ramUsada}%")
+        print(f"Memória: {ramUsada} (em GB's)")
         print(f"Disco: {discoUsado}%")
         print(f"Rede Download: {download_mbps} Mbps")
         print(f"Rede Upload: {upload_mbps} Mbps")
+        print(f"Processo com maior uso de CPU: {maior_cpu.name()} | PID: {maior_cpu.pid}")
+        print(f"Processo com maior uso de RAM: {maior_ram.info['name']} | PID: {maior_ram.info['pid']}")
         print("Data e hora local:", data_hora)
         print("---------------------------------------------")
 
     print("Programa encerrado.")
     
 def login():
-    email = "infra@flowtech.com.br"
-    passwd = "Sptech#2026"
+    email = input("Digite seu email: ")
+    passwd = input("Digite sua senha: ")
     
     comando_sql = "SELECT u.id_usuario, u.nome, u.email, u.senha, e.id_empresa, e.nome_fantasia FROM usuario u INNER JOIN empresa e ON u.empresa_id = e.id_empresa WHERE u.email = %s AND u.senha = sha2(%s,256);"
     dados_usuario = (email, passwd)
