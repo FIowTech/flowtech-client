@@ -6,13 +6,17 @@ import psutil
 from datetime import datetime, time
 from pathlib import Path
 import time
+import os
+from dotenv import load_dotenv
+import getpass
 
+load_dotenv()
 
 conexao = mysql.connector.connect(
-    host="localhost",
-    user="aluno",
-    password="Sptech#2024",
-    database="flowtech"
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    database=os.getenv("DB_NAME")
 )
 
 cursor = conexao.cursor(dictionary=True)
@@ -35,16 +39,15 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
 
     if not Path(f"./{nome_arquivo}").exists():
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write("mac,data/hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,freq_cpu_total,ram_total,ram_usada,swap_total,swap_usada,disco_total,disco_usado,maior_processo_cpu,maior_processo_ram,download,upload,latencia,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
+            csvfile.write("endereco_mac,timestamp,cpu_uso_pct,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,ram_uso_mb,ram_total_mb,swap_uso_mb,swap_total_mb,disco_uso_mb,disco_total_mb,maior_processo_cpu,maior_processo_ram,download_mbps,upload_mbps,latencia_ms,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
         
     for i in range(25):
-        # CPU 
         cpu = psutil.cpu_percent() 
         cpu_por_nucleo = psutil.cpu_percent(percpu=True)
         qtd_cpu_fisica = psutil.cpu_count(logical=False)
         qtd_cpu_logica = psutil.cpu_count(logical=True)
-        freq_cpu = f"{psutil.cpu_freq().current / 1000:.2f}"
-        freq_cpu_total = f"{psutil.cpu_freq().max / 1000:.2f}"
+        cpu_freq = f"{psutil.cpu_freq().current / 1000:.2f}"
+        cpu_freq_total = f"{psutil.cpu_freq().max / 1000:.2f}"
 
         mensagem_nucleos = []
         for i in range(MAX_NUCLEOS):
@@ -53,34 +56,20 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
              except IndexError:
                  mensagem_nucleos.append("")
 
-        # RAM
         ramTotal = f"{psutil.virtual_memory().total / (1024 * 1024):.0f}"
         ramUsada = f"{psutil.virtual_memory().used / (1024 * 1024):.0f}" 
         swapTotal = f"{psutil.swap_memory().total / (1024 * 1024):.0f}"
         swapUsada = f"{psutil.swap_memory().used / (1024 * 1024):.0f}"
 
-        # Disco
         discoTotal = f"{psutil.disk_usage("/").total / (1024 * 1024):.0f}"
         discoUsado = f"{psutil.disk_usage("/").used / (1024 * 1024):.0f}"
 
-        # Rede
         st = speedtest.Speedtest()
         st.get_best_server()
         latencia = st.results.ping
         download_mbps = f"{st.download() / 1_000_000:.2f}"
         upload_mbps = f"{st.upload() / 1_000_000:.2f}"
 
-        #Metodo errado
-        # rede_inicio = psutil.net_io_counters()
-
-        # time.sleep(1)
-
-        # rede_fim = psutil.net_io_counters()
-
-        # download_mbps = ((rede_fim.bytes_recv - rede_inicio.bytes_recv)* 8 / 1_000_000)     
-        # upload_mbps = ((rede_fim.bytes_sent - rede_inicio.bytes_sent) * 8 / 1_000_000)
-
-        # Capturando processo
         for processo in psutil.process_iter():
             try:
                 processo.cpu_percent(None)
@@ -117,9 +106,9 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
             
-        data_hora = datetime.now().replace(microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now().replace(microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
         
-        mensagem = [mac_geral,data_hora,cpu,qtd_cpu_fisica,qtd_cpu_logica,freq_cpu,freq_cpu_total,ramTotal,ramUsada,swapTotal,swapUsada,discoTotal,discoUsado,maior_cpu.name(),maior_ram.info['name'],download_mbps,upload_mbps,latencia,*mensagem_nucleos]
+        mensagem = [mac_geral,timestamp,cpu,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,ramUsada,ramTotal,swapUsada,swapTotal,discoUsado,discoTotal,maior_cpu.name(),maior_ram.info['name'],download_mbps,upload_mbps,latencia,*mensagem_nucleos]
 
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
             arquivo = csv.writer(csvfile)
@@ -132,14 +121,14 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
         print(f"Rede Upload: {upload_mbps} Mbps")
         print(f"Processo com maior uso de CPU: {maior_cpu.name()} | PID: {maior_cpu.pid}")
         print(f"Processo com maior uso de RAM: {maior_ram.info['name']} | PID: {maior_ram.info['pid']}")
-        print("Data e hora local:", data_hora)
+        print("Data e hora local:", timestamp)
         print("---------------------------------------------")
 
     print("Programa encerrado.")
     
 def login():
     email = input("Digite seu email: ")
-    passwd = input("Digite sua senha: ")
+    passwd = getpass.getpass("Digite sua senha: ", echo_char='*')
     
     comando_sql = "SELECT u.id_usuario, u.nome, u.email, u.senha, e.id_empresa, e.nome_fantasia FROM usuario u INNER JOIN empresa e ON u.empresa_id = e.id_empresa WHERE u.email = %s AND u.senha = sha2(%s,256);"
     dados_usuario = (email, passwd)
