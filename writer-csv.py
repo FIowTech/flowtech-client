@@ -39,15 +39,22 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
 
     if not Path(f"./{nome_arquivo}").exists():
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
-            csvfile.write("endereco_mac,timestamp,cpu_uso_pct,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,ram_uso_mb,ram_total_mb,swap_uso_mb,swap_total_mb,disco_uso_mb,disco_total_mb,maior_processo_cpu,maior_processo_ram,download_mbps,upload_mbps,latencia_ms,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
+            csvfile.write("endereco_mac,timestamp,cpu_uso_pct,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,load_avg_1m,load_avg_5m,load_avg_15m,ram_uso,ram_total,swap_uso,swap_total,disco_uso,disco_total,maior_processo_cpu,maior_processo_ram,download,upload,latencia_ms,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
         
     for i in range(25):
         cpu = psutil.cpu_percent() 
         cpu_por_nucleo = psutil.cpu_percent(percpu=True)
         qtd_cpu_fisica = psutil.cpu_count(logical=False)
         qtd_cpu_logica = psutil.cpu_count(logical=True)
-        cpu_freq = f"{psutil.cpu_freq().current / 1000:.2f}"
-        cpu_freq_total = f"{psutil.cpu_freq().max / 1000:.2f}"
+        cpu_freq = psutil.cpu_freq().current
+        cpu_freq_total = psutil.cpu_freq().max
+
+        try:
+            load_1m, load_5m, load_15m = psutil.getloadavg()
+        except (AttributeError, OSError):
+            load_1m, load_5m, load_15m = "", "", ""
+
+
 
         mensagem_nucleos = []
         for i in range(MAX_NUCLEOS):
@@ -56,19 +63,19 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
              except IndexError:
                  mensagem_nucleos.append("")
 
-        ramTotal = f"{psutil.virtual_memory().total / (1024 * 1024):.0f}"
-        ramUsada = f"{psutil.virtual_memory().used / (1024 * 1024):.0f}" 
-        swapTotal = f"{psutil.swap_memory().total / (1024 * 1024):.0f}"
-        swapUsada = f"{psutil.swap_memory().used / (1024 * 1024):.0f}"
+        ramTotal = psutil.virtual_memory().total
+        ramUsada = psutil.virtual_memory().used 
+        swapTotal = psutil.swap_memory().total
+        swapUsada = psutil.swap_memory().used
 
-        discoTotal = f"{psutil.disk_usage("/").total / (1024 * 1024):.0f}"
-        discoUsado = f"{psutil.disk_usage("/").used / (1024 * 1024):.0f}"
+        discoTotal = psutil.disk_usage("/").total
+        discoUsado = psutil.disk_usage("/").used
 
         st = speedtest.Speedtest()
         st.get_best_server()
         latencia = st.results.ping
-        download_mbps = f"{st.download() / 1_000_000:.2f}"
-        upload_mbps = f"{st.upload() / 1_000_000:.2f}"
+        download = st.download()
+        upload = st.upload()
 
         for processo in psutil.process_iter():
             try:
@@ -108,17 +115,19 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
             
         timestamp = datetime.now().replace(microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
         
-        mensagem = [mac_geral,timestamp,cpu,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,ramUsada,ramTotal,swapUsada,swapTotal,discoUsado,discoTotal,maior_cpu.name(),maior_ram.info['name'],download_mbps,upload_mbps,latencia,*mensagem_nucleos]
+        mensagem = [mac_geral,timestamp,cpu,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,load_1m,load_5m,load_15m,ramUsada,ramTotal,swapUsada,swapTotal,discoUsado,discoTotal,maior_cpu.name(),maior_ram.info['name'],download,upload,latencia,*mensagem_nucleos]
 
         with open(f'./{nome_arquivo}', 'a', newline='') as csvfile:
             arquivo = csv.writer(csvfile)
             arquivo.writerow(mensagem)
 
         print(f"CPU: {cpu}%")
-        print(f"Memória: {ramUsada} (em GB's)")
-        print(f"Disco: {discoUsado}%")
-        print(f"Rede Download: {download_mbps} Mbps")
-        print(f"Rede Upload: {upload_mbps} Mbps")
+        print(f"Load Average (1m, 5m, 15m): {load_1m}, {load_5m}, {load_15m}")
+        print(f"Memória Usada: {ramUsada}")
+        print(f"Disco Usado: {discoUsado}")
+        print(f"Rede Download: {download}")
+        print(f"Rede Download2: {upload}")
+        print(f"Rede Upload: {upload}")
         print(f"Processo com maior uso de CPU: {maior_cpu.name()} | PID: {maior_cpu.pid}")
         print(f"Processo com maior uso de RAM: {maior_ram.info['name']} | PID: {maior_ram.info['pid']}")
         print("Data e hora local:", timestamp)
