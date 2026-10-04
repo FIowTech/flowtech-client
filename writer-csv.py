@@ -9,17 +9,8 @@ import time
 import os
 from dotenv import load_dotenv
 import getpass
-#import boto3
-
+import boto3
 load_dotenv()
-
-# session = boto3.Session(
-# aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-# aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-# aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
-# region_name="us-east-1", #padrão
-# )
-# s3_client = session.client("s3")
 
 conexao = mysql.connector.connect(
     host=os.getenv("DB_HOST"),
@@ -34,8 +25,24 @@ mac_geral = get_mac_address().replace(":", "").upper()
 mac_geral_ponto = get_mac_address().upper()
 MAX_NUCLEOS = 16
 
-#def enviar_csv() :
-   # aws s3 sync ~/opt/flowtech_client/dados_coletados/ s3://flowtech-bucket/bronze/
+data_atual = datetime.now().strftime("%Y-%m-%d")
+data_hora_atual = datetime.now().strftime("%H%M")
+data_ano = datetime.now().strftime("%Y")
+data_mes = datetime.now().strftime("%m")
+data_dia = datetime.now().strftime("%d")
+data_hora = datetime.now().strftime("%H")
+nome_arquivo = f"{mac_geral}_{data_hora_atual}_captura.csv"
+
+def enviar_csv():
+    s3 = boto3.client("s3")
+    bucket_name = os.getenv("BUCKET_NAME")
+    local_folder = os.getenv("LOCAL_FOLDER")
+    s3_folder = os.getenv("S3_FOLDER")
+    file_path = os.path.join(local_folder, nome_arquivo)
+    object_key = f"{s3_folder}/ano={data_ano}/mes={data_mes}/dia={data_dia}/hora={data_hora}/{nome_arquivo}"
+    s3.upload_file(file_path, bucket_name, object_key)
+
+    print(f"Arquivo {nome_arquivo} enviado para o bucket {bucket_name} com sucesso.")
 
 def coletar_dados(usuario, mac_geral, id_embarcado):
     print("Programa Iniciado.")
@@ -46,14 +53,12 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
 
     print(f"Olá {usuario}, aqui estão os dados da sua máquina {mac_geral}(aguarde 15 seg):")
 
-    data_atual = datetime.now().strftime("%Y-%m-%d")
-    nome_arquivo = f"./{mac_geral}_{data_atual}.csv"
-
+    os.makedirs("./dados_coletados", exist_ok=True)
     if not Path(f"./dados_coletados/{nome_arquivo}").exists():
         with open(f'./dados_coletados/{nome_arquivo}', 'a', newline='') as csvfile:
             csvfile.write("endereco_mac,timestamp,cpu_uso_pct,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,load_avg_1m,load_avg_5m,load_avg_15m,ram_uso,ram_total,swap_uso,swap_total,disco_uso,disco_total,qtd_processos,maior_processo_cpu,maior_processo_ram,download,upload,latencia_ms,package_loss_sent,package_loss_received,cpu_1,cpu_2,cpu_3,cpu_4,cpu_5,cpu_6,cpu_7,cpu_8,cpu_9,cpu_10,cpu_11,cpu_12,cpu_13,cpu_14,cpu_15,cpu_16\n")
         
-    for i in range(25):
+    for i in range(2):
         cpu = psutil.cpu_percent() 
         cpu_por_nucleo = psutil.cpu_percent(percpu=True)
         qtd_cpu_fisica = psutil.cpu_count(logical=False)
@@ -104,19 +109,8 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
             
         time.sleep(1)
 
-        maior_cpu = ""
-        maior_percentual = 0
-
-        for processo in psutil.process_iter(['pid', 'name']):
-            try:
-                uso_cpu = processo.cpu_percent(None)
-
-                if uso_cpu > maior_percentual:
-                    maior_percentual = uso_cpu
-                    maior_cpu = processo
-
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
+        processos = list(psutil.process_iter(['cpu_percent', 'name']))
+        maior_cpu_proc = max(processos, key=lambda p: p.info['cpu_percent'])
 
         maior_ram = ""
         maior_memoria = 0
@@ -135,7 +129,7 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
             
         timestamp = datetime.now().replace(microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
         
-        mensagem = [mac_geral,timestamp,cpu,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,load_1m,load_5m,load_15m,ramUsada,ramTotal,swapUsada,swapTotal,discoUsado,discoTotal,total_processos,maior_cpu.name(),maior_ram.info['name'],download,upload,latencia,package_loss_sent,package_loss_received,*mensagem_nucleos]
+        mensagem = [mac_geral,timestamp,cpu,qtd_cpu_fisica,qtd_cpu_logica,cpu_freq,cpu_freq_total,load_1m,load_5m,load_15m,ramUsada,ramTotal,swapUsada,swapTotal,discoUsado,discoTotal,total_processos,maior_cpu_proc.info['name'],maior_ram.info['name'],download,upload,latencia,package_loss_sent,package_loss_received,*mensagem_nucleos]
 
         with open(f'./dados_coletados/{nome_arquivo}', 'a', newline='') as csvfile:
             arquivo = csv.writer(csvfile)
@@ -150,13 +144,13 @@ def coletar_dados(usuario, mac_geral, id_embarcado):
         print(f"Rede Upload: {upload}")
         print(f"Perda de pacotes (enviadas): {package_loss_sent}")
         print(f"Perda de pacotes (recebido): {package_loss_received}")
-        print(f"Processo com maior uso de CPU: {maior_cpu.name()} | PID: {maior_cpu.pid}")
+        print(f"Processo com maior uso de CPU: {maior_cpu_proc.info['name']} | PID: {maior_cpu_proc.info['pid']}")
         print(f"Processo com maior uso de RAM: {maior_ram.info['name']} | PID: {maior_ram.info['pid']}")
         print("Data e hora local:", timestamp)
         print("---------------------------------------------")
 
     print("Programa encerrado.")
-    #enviar_csv()
+    enviar_csv()
     
 def login():
     email = input("Digite seu email: ")
