@@ -163,7 +163,7 @@ def login():
     resultados = cursor.fetchone()
 
     if not resultados:
-        print("Operação invalida: Usuário não encontrado! Acesse www.freeflow.com e realize seu cadastro.")
+        print("Operação invalida: Usuário não encontrado! Acesse www.flowtech.com.br e realize seu cadastro.")
         return
 
     usuario = resultados["nome"]
