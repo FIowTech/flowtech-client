@@ -408,8 +408,8 @@ def coletar_metricas():
         pacotes_enviados = net_io.packets_sent
         pacotes_recebidos = net_io.packets_recv
 
-        qtd_pacotes_perdidos_saindo = net_io.dropout
-        qtd_pacotes_perdidos_chegando = net_io.dropin
+        pacotes_perdidos_saindo = net_io.dropout
+        pacotes_perdidos_chegando = net_io.dropin
 
         qtd_erros_enviando = net_io.errout
         qtd_erros_recebendo = net_io.errin
@@ -427,8 +427,9 @@ def coletar_metricas():
         # Body da uma das linhas do CSV
         captura = {
             "timestamp": timestamp,
-            "ip": ip,
             "endereco_mac": ENDERECO_MAC,
+            "ip": ip,
+
             "cpu_uso_pct": cpu_uso,
             "qtd_cpu_fisica": qtd_cpu_fisica,
             "qtd_cpu_logica": qtd_cpu_logica,
@@ -437,22 +438,35 @@ def coletar_metricas():
             "load_avg_1m": load_1m,
             "load_avg_5m": load_5m,
             "load_avg_15m": load_15m,
+
             "ram_uso": ram_uso,
+            "ram_uso_pct": ram_uso_pct,
             "ram_total": ram_total,
+
             "swap_uso": swap_uso,
+            "swap_uso_pct": swap_uso_pct,
             "swap_total": swap_total,
+
             "disco_uso": disco_uso,
+            "disco_uso_pct": disco_uso_pct,
             "disco_total": disco_total,
+
             "qtd_processos": qtd_processos,
             "maior_processo_cpu": maior_processo_cpu["name"],
             "maior_processo_cpu_pct": maior_processo_cpu["cpu_percent"],
             "maior_processo_ram": maior_processo_mem["name"],
             "maior_processo_ram_pct": maior_processo_mem["memory_percent"],
+
             "download_bps": download,
             "upload_bps": upload,
             "latencia_ms": latencia,
-            "package_loss_sent": qtd_pacotes_perdidos_saindo,
-            "package_loss_received": qtd_pacotes_perdidos_chegando,
+            
+            "bytes_enviados": bytes_enviados,
+            "bytes_recebidos": bytes_recebidos,
+            "pacotes_enviados": pacotes_enviados,
+            "pacotes_recebidos": pacotes_recebidos,
+            "pacotes_perdidos_saindo": pacotes_perdidos_saindo,
+            "pacotes_perdidos_chegando": pacotes_perdidos_chegando,
         }
 
         # Como cada máquina pode ter qtds. diferentes de núcleos, estes campos tem
