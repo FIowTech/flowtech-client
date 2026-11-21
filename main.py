@@ -3,10 +3,11 @@ import io
 import csv
 import sys
 import json
-import signal
-import threading
 import boto3
+import signal
+import socket
 import psutil
+import threading
 import speedtest
 import mysql.connector
 from getpass import getpass
@@ -22,7 +23,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 # Carrega as variáveis de ambiente presentes em .env
 load_dotenv()
 
-INTERVALO_COLETA = 30                                   # intervalo entre as coletas, em segundos
+INTERVALO_COLETA = 2                                   # intervalo entre as coletas, em segundos
 CAPTURAS_POR_CICLO = 20                                 # qtd. de capturas por ciclo
 DURACAO_CICLO = INTERVALO_COLETA * CAPTURAS_POR_CICLO   # duração de 1 ciclo, em segundos
 
@@ -420,9 +421,13 @@ def coletar_metricas():
         # String com o timestamp atual
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # IP da máquina local
+        ip = socket.gethostbyname(socket.gethostname())
+
         # Body da uma das linhas do CSV
         captura = {
             "timestamp": timestamp,
+            "ip": ip,
             "endereco_mac": ENDERECO_MAC,
             "cpu_uso_pct": cpu_uso,
             "qtd_cpu_fisica": qtd_cpu_fisica,
